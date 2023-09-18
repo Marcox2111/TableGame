@@ -5,25 +5,26 @@ from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
 from PIL import ImageGrab
 
-from hand_layout import Ui_HandWidget
+from hand_layout import Ui_Hand
+from bang_ground_layout import Ui_Bang_Ground
+
 
 class Card(QWidget):
-    def __init__(self, hand, name, label):
+    def __init__(self, context, card_id):
         super().__init__()
-        self.hand = hand
-        self.name = name
-        self.label = label
-        self.hand.destroyed.connect(self.close)
+        self.context = context
+        self.card_id = card_id
+        self.image_path=f"CardFolder/Card_{self.card_id}.png"
         self.init_ui()
 
     def init_ui(self):
         """Initialize the UI components for the Card."""
-        self.setWindowTitle(self.name)
+        self.setWindowTitle(f"Card_{self.card_id}")
         self.layout = QVBoxLayout(self)
 
         # Create a QLabel to display the image
         self.image_label = QLabel(self)
-        pixmap = QPixmap(f"{HandFolder}/{self.name}")
+        pixmap = self.get_image()
         self.image_label.setPixmap(pixmap)
         self.layout.addWidget(self.image_label)
 
@@ -31,106 +32,167 @@ class Card(QWidget):
         self.button.clicked.connect(self.use_card)
         self.layout.addWidget(self.button)
 
+        self.equip_button = QPushButton('Equip', self)
+        self.equip_button.clicked.connect(self.equip_card)
+        self.layout.addWidget(self.equip_button)
+
+        if self.context == 'ground':
+            self.equip_button.setEnabled(False)  # Disable the equip button
+
+    def get_image(self):
+        return QPixmap(self.image_path)
+
     def use_card(self):
         """Use the card and move its file to the discard folder."""
-        try:
-            shutil.move(f"{HandFolder}/{self.name}", f"{DiscardFolder}/{self.name}")
-        except Exception as e:
-            print(f"Error moving card: {e}")
-        self.hand.use_card(self)
         self.close()
 
-    def is_visible(self):
-        """Check if the card widget is currently visible."""
-        return self.isVisible()
+    def equip_card(self):
+        
+        self.close()
+    
+    def show_card(self):
+        """Display the card."""
+        if not self.isVisible():
+            self.show()
+    
 
+ 
 
+class Hand(QWidget, Ui_Hand):
+    card_counter=0
 
-
-class Hand(QWidget):
     def __init__(self, player):
         super().__init__()
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
 
          # Initialize attributes
         self.player = player
-        self.numberofcards=0
         self.cards = []  # List to store Card objects
-        self.image_labels = []
+        self.card_id_to_label = {}  # Dictionary to map card IDs to labels
 
-        self.init_ui()
+        self.setupUi(self)
 
-    def init_ui(self):
-        self.setWindowTitle('Hand')
+        self.pushButton.clicked.connect(self.draw_card)
 
-        # Layout
-        self.layout = QVBoxLayout(self)
-        self.image_layout = QHBoxLayout()
-        self.layout.addLayout(self.image_layout)
-    
-        # Button
-        self.button = QPushButton('Draw', self)
-        self.button.clicked.connect(self.draw_card)
-        self.layout.addWidget(self.button)
 
         
     def draw_card(self):
         """Draw a card and display its preview."""
-        self.numberofcards += 1
+        Hand.card_counter += 1
+        card_id = Hand.card_counter
 
         screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
-        cardname = f"Card_{self.numberofcards}.png"
-        location = f"{HandFolder}/{cardname}"
+        location = f"{CardFolder}/Card_{card_id}.png"
         screenshot.save(location)
+
+        card = Card(card_id=card_id, context='hand')
+        card.button.clicked.connect(lambda: self.on_card_used(card))  # Connect the use_card button click to on_card_used
+        card.equip_button.clicked.connect(lambda: self.on_card_equip(card))  # Connect the equip button click to on_card_equip
 
         pixmap = QPixmap(location).scaled(int(width/3), int(height/3), Qt.AspectRatioMode.KeepAspectRatio)
         label = QLabel(self)
         label.setPixmap(pixmap)
 
-        card = Card(hand=self, name=cardname, label=label)
-        self.show_card(card)
+        self.card_id_to_label[card.card_id] = label
+
         self.cards.append(card) # Add the card to the list
 
         label.mousePressEvent = lambda event, card=card: self.on_preview_clicked(event, card)
-        self.image_labels.append(label)
-        self.image_layout.addWidget(label)
+        self.horizontalLayout.addWidget(label)
 
-    def use_card(self, card):
+    def on_card_used(self, card):
+        """Handle the event when a card is used."""
+        label_to_remove = self.card_id_to_label.get(card.card_id)
+
         # Remove the QLabel from the layout and list
-        self.image_layout.removeWidget(card.label)
-        self.image_labels.remove(card.label)
-        card.label.deleteLater()
+        self.horizontalLayout.removeWidget(label_to_remove)
+        label_to_remove.deleteLater()
+        del self.card_id_to_label[card.card_id]  # Remove the entry from the dictionary
+
 
         # Remove the Card instance
         self.cards.remove(card)
+    
+    def on_card_equip(self, card):
+        """Handle the event when a card is equipped."""
+        # Remove the card from the hand
+        self.on_card_used(card)
 
-    def show_card(self, card):
-        """Display a specific card."""
-        card.show()
+        # Add the card to the ground
+        self.player.ground.on_card_equip(card)
 
     def on_preview_clicked(self, event, card):
         """Handle the click event on a card's preview."""
-        if not card.is_visible():
-            self.show_card(card)
+        card.show_card()
     
 
 
-class Ground(QWidget):
+class Ground(QWidget,Ui_Bang_Ground):
     def __init__(self, player):
         super().__init__()
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-
+        self.setupUi(self)
         self.player = player
-        self.numberofcards=0
         self.cards = []  # List to store Card objects
+        self.card_id_to_label = {}  # Dictionary to map card IDs to labels
+        
+        self.start_hp()
 
-        self.init_ui()
+    def start_hp(self):
+        self.heart_image = QPixmap("resources/LifePoints.png")
+        self.hp_labels = [self.hpLabel1, self.hpLabel2, self.hpLabel3, self.hpLabel4, self.hpLabel5]
 
-    def init_ui(self):
-        self.setWindowTitle('Ground')
+        for label in self.hp_labels:
+            label.setPixmap(self.heart_image)
+            label.mousePressEvent = lambda event, label=label: self.toggle_hp(event, label)
 
-        # Layout
-        self.layout = QVBoxLayout(self)
+
+
+    def toggle_hp(self, event, label):
+        """Toggle the visibility of the clicked QLabel."""
+        if isinstance(label, QLabel):
+            if label.pixmap() and not label.pixmap().isNull():  # If the label currently has a pixmap
+                print(f"Sender: {self}")
+                label.setPixmap(QPixmap())  # Set an empty pixmap
+            else:
+                label.setPixmap(self.heart_image)  # Set the original pixmap
+
+    def on_card_equip(self, card):
+        location = f"{CardFolder}/Card_{card.card_id}.png"
+        card.context = 'ground'
+        card.equip_button.setEnabled(False)  # Disable the equip button
+        card.button.clicked.connect(lambda: self.on_card_used(card))  # Connect the use_card button click to on_card_used
+
+        pixmap = QPixmap(location).scaled(int(width/3), int(height/3), Qt.AspectRatioMode.KeepAspectRatio)
+        label = QLabel(self)
+        label.setPixmap(pixmap)
+
+        self.card_id_to_label[card.card_id] = label
+
+        self.cards.append(card) # Add the card to the list
+
+        label.mousePressEvent = lambda event, card=card: self.on_preview_clicked(event, card)
+        if card.card_id == 1:
+            self.charLayout.addWidget(label)
+            label.setPixmap(QPixmap(location).scaled(int(width/2), int(height/2), Qt.AspectRatioMode.KeepAspectRatio))
+        else:
+            self.equipLayout.addWidget(label)
+
+# TODO Il metodo on card used applicarlo alla classe game piuttosto che ai singoli environment
+    def on_card_used(self, card):
+        """Handle the event when a card is used."""
+        label_to_remove = self.card_id_to_label.get(card.card_id)
+
+        # Remove the QLabel from the layout and list
+        self.equipLayout.removeWidget(label_to_remove)
+        label_to_remove.deleteLater()
+        del self.card_id_to_label[card.card_id]  # Remove the entry from the dictionary
+        # Remove the Card instance
+        self.cards.remove(card)
+
+    def on_preview_clicked(self, event, card):
+        """Handle the click event on a card's preview."""
+        card.show_card()
 
         
 class Player:
@@ -150,10 +212,16 @@ class Player:
 class Game:
     def __init__(self):
         self.player = Player()
+        self.used_cards = set()
+
+    def use_card(self, card):
+        self.used_cards.add(card.card_id)
+
+    def is_card_used(self, card):
+        return card.card_id in self.used_cards
 
 
-HandFolder = "HandCards"
-DiscardFolder = "DiscardCards"
+CardFolder = "CardFolder"
 width=300
 height=500
 x1=0
