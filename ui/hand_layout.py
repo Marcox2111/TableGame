@@ -14,7 +14,7 @@ class Ui_Hand(object):
         Hand.setObjectName("Hand")
         Hand.resize(500, 300)
         self.verticalLayoutWidget = QtWidgets.QWidget(parent=Hand)
-        self.verticalLayoutWidget.setGeometry(QtCore.QRect(10, 10, 481, 281))
+        self.verticalLayoutWidget.setGeometry(QtCore.QRect(10, 10, 480, 280))
         self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.verticalLayoutWidget)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)

@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
-    <class>Hand</class>
-    <widget class="QWidget" name="Hand">
+    <class>Player</class>
+    <widget class="QWidget" name="Player">
         <property name="geometry">
             <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>500</width>
-                <height>300</height>
+                <width>300</width>
+                <height>200</height>
             </rect>
         </property>
         <property name="windowTitle">
-            <string>Hand</string>
+            <string>Player</string>
         </property>
         <widget class="QWidget" name="verticalLayoutWidget">
             <property name="geometry">
                 <rect>
                     <x>10</x>
                     <y>10</y>
-                    <width>480</width>
-                    <height>280</height>
+                    <width>280</width>
+                    <height>180</height>
                 </rect>
             </property>
             <layout class="QVBoxLayout" name="verticalLayout">
@@ -27,12 +27,16 @@
                     <number>10</number>
                 </property>
                 <item>
-                    <layout class="QHBoxLayout" name="horizontalLayout" />
+                    <widget class="QPushButton" name="pushButton">
+                        <property name="text">
+                            <string>Show Hand</string>
+                        </property>
+                    </widget>
                 </item>
                 <item>
                     <widget class="QPushButton" name="pushButton">
                         <property name="text">
-                            <string>Draw</string>
+                            <string>Show Ground</string>
                         </property>
                     </widget>
                 </item>
