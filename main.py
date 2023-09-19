@@ -10,8 +10,9 @@ from bang_ground_layout import Ui_Bang_Ground
 
 
 class Card(QWidget):
-    def __init__(self, context, card_id):
+    def __init__(self, parent, context, card_id):
         super().__init__()
+        self.parent = parent
         self.context = context
         self.card_id = card_id
         self.image_path=f"CardFolder/Card_{self.card_id}.png"
@@ -29,11 +30,11 @@ class Card(QWidget):
         self.layout.addWidget(self.image_label)
 
         self.button = QPushButton('Use', self)
-        self.button.clicked.connect(self.use_card)
+        self.button.clicked.connect(self.on_use_clicked)
         self.layout.addWidget(self.button)
 
         self.equip_button = QPushButton('Equip', self)
-        self.equip_button.clicked.connect(self.equip_card)
+        self.equip_button.clicked.connect(self.on_equip_clicked)
         self.layout.addWidget(self.equip_button)
 
         if self.context == 'ground':
@@ -41,13 +42,13 @@ class Card(QWidget):
 
     def get_image(self):
         return QPixmap(self.image_path)
-
-    def use_card(self):
-        """Use the card and move its file to the discard folder."""
+    
+    def on_use_clicked(self):
+        self.parent.on_card_used(self)
         self.close()
 
-    def equip_card(self):
-        
+    def on_equip_clicked(self):
+        self.parent.on_card_equip(self)
         self.close()
     
     def show_card(self):
@@ -63,8 +64,6 @@ class Hand(QWidget, Ui_Hand):
 
     def __init__(self, player):
         super().__init__()
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-
          # Initialize attributes
         self.player = player
         self.cards = []  # List to store Card objects
@@ -85,9 +84,7 @@ class Hand(QWidget, Ui_Hand):
         location = f"{CardFolder}/Card_{card_id}.png"
         screenshot.save(location)
 
-        card = Card(card_id=card_id, context='hand')
-        card.button.clicked.connect(lambda: self.on_card_used(card))  # Connect the use_card button click to on_card_used
-        card.equip_button.clicked.connect(lambda: self.on_card_equip(card))  # Connect the equip button click to on_card_equip
+        card = Card(parent=self, card_id=card_id, context='hand')
 
         pixmap = QPixmap(location).scaled(int(width/3), int(height/3), Qt.AspectRatioMode.KeepAspectRatio)
         label = QLabel(self)
@@ -160,8 +157,8 @@ class Ground(QWidget,Ui_Bang_Ground):
     def on_card_equip(self, card):
         location = f"{CardFolder}/Card_{card.card_id}.png"
         card.context = 'ground'
+        card.parent = self
         card.equip_button.setEnabled(False)  # Disable the equip button
-        card.button.clicked.connect(lambda: self.on_card_used(card))  # Connect the use_card button click to on_card_used
 
         pixmap = QPixmap(location).scaled(int(width/3), int(height/3), Qt.AspectRatioMode.KeepAspectRatio)
         label = QLabel(self)
@@ -178,7 +175,7 @@ class Ground(QWidget,Ui_Bang_Ground):
         else:
             self.equipLayout.addWidget(label)
 
-# TODO Il metodo on card used applicarlo alla classe game piuttosto che ai singoli environment
+
     def on_card_used(self, card):
         """Handle the event when a card is used."""
         label_to_remove = self.card_id_to_label.get(card.card_id)
